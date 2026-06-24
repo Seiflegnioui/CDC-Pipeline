@@ -1,0 +1,28 @@
+{
+  "name": "elasticsearch-sink",
+  "config": {
+    "connector.class": "io.aiven.connect.elasticsearch.ElasticsearchSinkConnector",
+    "topics": "dbserver1.appdb.users,dbserver1.appdb.products,dbserver1.appdb.orders",
+    "connection.url": "http://elasticsearch:9200",
+    "type.name": "_doc",
+    "key.ignore": "false",
+    "schema.ignore": "true",
+    "behavior.on.null.values": "delete",
+    "write.method": "upsert",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "extractId,renameTopics,removeId",
+    "transforms.extractId.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
+    "transforms.extractId.field": "id",
+    "transforms.renameTopics.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.renameTopics.regex": "dbserver1\\.appdb\\.(.*)",
+    "transforms.renameTopics.replacement": "$1",
+    "transforms.removeId.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "transforms.removeId.exclude": "_id",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true"
+  }
+}
