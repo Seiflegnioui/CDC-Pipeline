@@ -1,7 +1,14 @@
+% ══════════════════════════════════════════════════════════════════
+%  Pipeline CDC en Temps Réel — Présentation Beamer
+%  MongoDB → Debezium → Kafka → Elasticsearch
+% ══════════════════════════════════════════════════════════════════
 \documentclass[aspectratio=169]{beamer}
 
-% ── REQUIRED PACKAGES ─────────────────────────────────────────────
+% ── PAQUETS REQUIS ────────────────────────────────────────────────
 \usetheme{metropolis}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
 \usepackage{tikz}
 \usepackage{tcolorbox}
 \usepackage{fontawesome5}
@@ -12,30 +19,35 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{hyperref}
-\usepackage{animate}
 \usepackage{lmodern}
+\usepackage{soul}             % pour \sout (barré)
+\usepackage{multicol}
 
 \usetikzlibrary{arrows.meta, shapes, positioning, fit, backgrounds, shadows, calc, decorations.pathreplacing}
 \tcbuselibrary{skins, breakable, listings}
 \pgfplotsset{compat=1.18}
 
-% ── CUSTOM COLOR PALETTE ──────────────────────────────────────────
-\definecolor{primary}{HTML}{0F172A}     % Deep navy
-\definecolor{accent}{HTML}{38BDF8}      % Electric blue
+% ── PALETTE DE COULEURS PERSONNALISÉE ─────────────────────────────
+\definecolor{primary}{HTML}{0F172A}     % Bleu marine profond
+\definecolor{accent}{HTML}{38BDF8}      % Bleu électrique
 \definecolor{accentsec}{HTML}{818CF8}   % Indigo
-\definecolor{success}{HTML}{34D399}     % Emerald
-\definecolor{warning}{HTML}{FBBF24}     % Amber
-\definecolor{bgbody}{HTML}{1E293B}      % Slate dark
-\definecolor{surface}{HTML}{0F172A}     % Darker navy
-\definecolor{textprim}{HTML}{F1F5F9}    % Near white
-\definecolor{textsec}{HTML}{94A3B8}     % Slate gray
+\definecolor{success}{HTML}{34D399}     % Émeraude
+\definecolor{warning}{HTML}{FBBF24}     % Ambre
+\definecolor{danger}{HTML}{F43F5E}      % Corail / Rouge
+\definecolor{bgbody}{HTML}{1E293B}      % Ardoise foncé
+\definecolor{surface}{HTML}{0F172A}     % Marine encore plus foncé
+\definecolor{textprim}{HTML}{F1F5F9}    % Blanc cassé
+\definecolor{textsec}{HTML}{94A3B8}     % Gris ardoise
 
-\definecolor{cMongo}{HTML}{14B8A6}      % Teal
-\definecolor{cDebezium}{HTML}{A855F7}   % Purple
-\definecolor{cKafka}{HTML}{F59E0B}      % Amber
-\definecolor{cElastic}{HTML}{F43F5E}    % Coral
+% Couleurs des composants
+\definecolor{cMongo}{HTML}{14B8A6}      % Sarcelle
+\definecolor{cDebezium}{HTML}{A855F7}   % Violet
+\definecolor{cKafka}{HTML}{F59E0B}      % Ambre
+\definecolor{cElastic}{HTML}{F43F5E}    % Corail
+\definecolor{cKibana}{HTML}{E879F9}     % Rose
+\definecolor{cDocker}{HTML}{2496ED}     % Bleu Docker
 
-% ── THEME OVERRIDES ───────────────────────────────────────────────
+% ── PERSONNALISATION DU THÈME ────────────────────────────────────
 \setbeamercolor{normal text}{fg=textprim, bg=bgbody}
 \setbeamercolor{frametitle}{bg=primary, fg=white}
 \setbeamercolor{progress bar}{fg=accent, bg=surface}
@@ -47,37 +59,42 @@
 \setbeamerfont{title}{size=\huge, series=\bfseries}
 \setbeamerfont{subtitle}{size=\Large, series=\mdseries}
 
-% Add thin horizontal accent line under frametitle
+% Ligne d'accent sous le titre des diapositives
 \addtobeamertemplate{frametitle}{}{%
   \begin{tikzpicture}[remember picture,overlay]
     \draw[accent, thick] (current page.north west) ++(0,-1.02) -- ++(\paperwidth,0);
   \end{tikzpicture}
 }
 
-% ── CUSTOM STYLES & MACROS ────────────────────────────────────────
+% ── STYLES TikZ & MACROS ────────────────────────────────────────
 \tikzset{
     component/.style={
-        rectangle, rounded corners, draw=surface, fill=surface, 
-        thick, text=white, align=center, minimum width=2.8cm, minimum height=1.5cm,
-        drop shadow={opacity=0.2}
+        rectangle, rounded corners=6pt, draw=#1, fill=#1!15!surface,
+        thick, text=white, align=center, minimum width=2.6cm, minimum height=1.4cm,
+        drop shadow={opacity=0.25, shadow xshift=1pt, shadow yshift=-1pt}
     },
+    component/.default=accent,
     arrow/.style={
         -{Stealth[length=3mm]}, thick, draw=accent
     },
     stepcircle/.style={
-        circle, fill=accent, text=primary, font=\bfseries, 
+        circle, fill=accent, text=primary, font=\bfseries,
         minimum size=0.6cm, inner sep=0pt
+    },
+    sectionnum/.style={
+        font=\fontsize{60}{60}\bfseries, text=primary
     }
 }
 
 \tcbset{
     card/.style={
-        enhanced, colback=surface, colframe=surface, arc=4mm, 
+        enhanced, colback=surface, colframe=surface, arc=4mm,
         boxrule=0pt, drop shadow={opacity=0.2}, coltext=textprim
     },
     badcard/.style={card, colback=red!10!bgbody, colframe=red!30!bgbody, boxrule=1pt},
     goodcard/.style={card, colback=green!10!bgbody, colframe=green!30!bgbody, boxrule=1pt},
-    codebox/.style={card, colback=primary, arc=2mm, top=0pt, bottom=0pt, left=0pt, right=0pt}
+    codebox/.style={card, colback=primary, arc=2mm, top=0pt, bottom=0pt, left=0pt, right=0pt},
+    statcard/.style={card, boxrule=1pt, halign=center}
 }
 
 \setminted{
@@ -88,379 +105,441 @@
     tabsize=2
 }
 
-% Image placeholder macro
-% Usage: \imageplaceholder{filename}{width}{placeholder height}
-\newcommand{\imageplaceholder}[3]{%
-  \begin{figure}
+% ── MACRO POUR LES PLACEHOLDERS D'IMAGES ────────────────────────
+% Usage : \imageplaceholder{nom_fichier}{largeur}{hauteur}{légende}
+\newcommand{\imageplaceholder}[4]{%
+  \begin{center}
   \IfFileExists{images/#1}{%
     \includegraphics[width=#2]{images/#1}%
   }{%
-    \fbox{\begin{tikzpicture}
-      \node[fill=surface, text=textsec, minimum width=#2, minimum height=#3, align=center] {
-        \faImage\\[1ex] \small [IMAGE: #1]
+    \begin{tikzpicture}
+      \node[fill=surface, draw=textsec!30, dashed, thick, rounded corners=4pt,
+            text=textsec, minimum width=#2, minimum height=#3, align=center] {
+        \faImage\quad {\small \texttt{images/#1}}\\[0.5ex]
+        {\scriptsize Remplacer par une capture d'écran réelle}
       };
-    \end{tikzpicture}}
+    \end{tikzpicture}%
   }
-  \end{figure}
+  \ifx&#4& \else
+    \\[-0.2cm]
+    {\scriptsize\color{textsec} #4}
+  \fi
+  \end{center}
 }
 
-% ── DOCUMENT INFO ─────────────────────────────────────────────────
-\title{\textcolor{accent}{Real-Time Data Synchronization} with CDC}
+% Macro pour les séparateurs de sections
+\newcommand{\sectionslide}[3]{%
+  \begin{frame}[plain]
+    \begin{tikzpicture}[remember picture, overlay]
+      \fill[bgbody] (current page.south west) rectangle (current page.north east);
+      % Panneau d'accent à gauche
+      \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
+      % Lignes décoratives
+      \begin{scope}[opacity=0.15]
+        \foreach \y in {0,2,4} {
+          \draw[white, thick] (-1,\y) -- (4,\y+5);
+        }
+      \end{scope}
+      % Numéro de section
+      \node[sectionnum] at ([xshift=0.165\paperwidth]current page.center) {#1};
+      % Titre et sous-titre
+      \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
+        \begin{minipage}{0.55\textwidth}
+          {\Huge\bfseries #2}\\[0.5em]
+          {\Large\color{accentsec} #3}
+        \end{minipage}
+      };
+    \end{tikzpicture}
+  \end{frame}
+}
+
+% ── INFORMATIONS DU DOCUMENT ────────────────────────────────────
+\title{\textcolor{accent}{Synchronisation de Données en Temps Réel} avec CDC}
 \subtitle{\textcolor{accentsec}{MongoDB \faAngleRight\ Debezium \faAngleRight\ Kafka \faAngleRight\ Elasticsearch}}
-\author{[AUTHOR NAME]}
+\author{[NOM DE L'AUTEUR]}
 \date{\today}
-\institute{[CONFERENCE / COURSE NAME]}
+\institute{[NOM DU COURS / ÉTABLISSEMENT]}
 
 \begin{document}
 
-% ==================================================================
-% SLIDE 1: TITLE SLIDE
-% ==================================================================
+% ══════════════════════════════════════════════════════════════════
+% DIAPOSITIVE 1 : PAGE DE TITRE
+% ══════════════════════════════════════════════════════════════════
 {
-\setbeamertemplate{footline}{} % Hide progress bar on title slide
+\setbeamertemplate{footline}{}
 \begin{frame}[plain]
   \begin{tikzpicture}[remember picture, overlay]
-    % Background
+    % Fond
     \fill[primary] (current page.south west) rectangle (current page.north east);
-    
-    % Subtle dot grid background
-    \begin{scope}[opacity=0.1]
-      \foreach \x in {0,1,...,16} {
-        \foreach \y in {0,1,...,9} {
-          \fill[textsec] (\x,\y) circle (1pt);
+
+    % Grille de points subtile
+    \begin{scope}[opacity=0.08]
+      \foreach \x in {0,0.8,...,16} {
+        \foreach \y in {0,0.8,...,9} {
+          \fill[textsec] (\x,\y) circle (0.8pt);
         }
       }
     \end{scope}
 
-    % Logo Placeholder
+    % Dégradé subtil en bas
+    \fill[accent, opacity=0.05] (current page.south west) rectangle ([yshift=2cm]current page.south east);
+
+    % Logo placeholder
     \node[anchor=north west, inner sep=15pt] at (current page.north west) {
       \IfFileExists{images/logo.png}{
         \includegraphics[width=2cm]{images/logo.png}
       }{
-        \color{textsec}\faCode\ \small [LOGO]
+        \begin{tikzpicture}
+          \node[fill=surface, draw=textsec!30, dashed, rounded corners, text=textsec, 
+                minimum width=2cm, minimum height=1.2cm, font=\scriptsize, align=center] 
+                {\faUniversity\\[0.3em] LOGO};
+        \end{tikzpicture}
       }
     };
 
-    % Title and Subtitle
-    \node[anchor=center, align=center] at ($(current page.center)+(0,1.5)$) {
-      {\Huge\bfseries\color{white} Real-Time Data Synchronization \textcolor{accent}{with CDC}}\\[0.5em]
+    % Titre principal
+    \node[anchor=center, align=center] at ($(current page.center)+(0,1.8)$) {
+      {\fontsize{28}{34}\selectfont\bfseries\color{white} Synchronisation de Données}\\[0.3em]
+      {\fontsize{28}{34}\selectfont\bfseries\color{white} en Temps Réel \textcolor{accent}{avec CDC}}
+    };
+
+    % Sous-titre
+    \node[anchor=center, align=center] at ($(current page.center)+(0,0.3)$) {
       {\Large\color{accentsec} MongoDB \faAngleRight\ Debezium \faAngleRight\ Kafka \faAngleRight\ Elasticsearch}
     };
 
-    % Horizontal Pipeline Diagram
-    \node[anchor=center] at ($(current page.center)+(0,-1)$) {
-      \begin{tikzpicture}
-        \node[component, fill=cMongo!20!surface, draw=cMongo] (mongo) {\faDatabase\\[0.5em] MongoDB};
-        \node[component, fill=cDebezium!20!surface, draw=cDebezium, right=1.5cm of mongo] (debezium) {\faPlug\\[0.5em] Debezium};
-        \node[component, fill=cKafka!20!surface, draw=cKafka, right=1.5cm of debezium] (kafka) {\faStream\\[0.5em] Kafka};
-        \node[component, fill=cElastic!20!surface, draw=cElastic, right=1.5cm of kafka] (elastic) {\faSearch\\[0.5em] Elastic};
-        
+    % Pipeline visuelle miniature
+    \node[anchor=center] at ($(current page.center)+(0,-1.5)$) {
+      \begin{tikzpicture}[scale=0.85]
+        \node[component=cMongo, minimum width=2.2cm, minimum height=1.2cm] (mongo) {\faDatabase\\[0.3em] \footnotesize MongoDB};
+        \node[component=cDebezium, minimum width=2.2cm, minimum height=1.2cm, right=1.2cm of mongo] (debezium) {\faPlug\\[0.3em] \footnotesize Debezium};
+        \node[component=cKafka, minimum width=2.2cm, minimum height=1.2cm, right=1.2cm of debezium] (kafka) {\faStream\\[0.3em] \footnotesize Kafka};
+        \node[component=cElastic, minimum width=2.2cm, minimum height=1.2cm, right=1.2cm of kafka] (elastic) {\faSearch\\[0.3em] \footnotesize Elastic};
+
         \draw[arrow, cMongo] (mongo) -- (debezium);
         \draw[arrow, cDebezium] (debezium) -- (kafka);
         \draw[arrow, cKafka] (kafka) -- (elastic);
       \end{tikzpicture}
     };
 
-    % Author and Date
-    \node[anchor=south west, inner sep=15pt] at (current page.south west) {
-      \color{textsec}\small [AUTHOR NAME] \quad|\quad [CONFERENCE / COURSE NAME]
+    % Auteur et date
+    \node[anchor=south west, inner sep=15pt, text=textsec, font=\small] at (current page.south west) {
+      [NOM DE L'AUTEUR] \quad|\quad [NOM DU COURS / ÉTABLISSEMENT]
     };
-    \node[anchor=south east, inner sep=15pt] at (current page.south east) {
-      \color{textsec}\small \today
+    \node[anchor=south east, inner sep=15pt, text=textsec, font=\small] at (current page.south east) {
+      \today
     };
   \end{tikzpicture}
 \end{frame}
 }
 
-% ==================================================================
-% SLIDE 2: TABLE OF CONTENTS
-% ==================================================================
-\begin{frame}{Agenda}
-  \vspace{0.5cm}
-  \begin{tikzpicture}[node distance=0.8cm and 0.5cm]
+% ══════════════════════════════════════════════════════════════════
+% DIAPOSITIVE 2 : SOMMAIRE
+% ══════════════════════════════════════════════════════════════════
+\begin{frame}{Sommaire}
+  \vspace{0.3cm}
+  \begin{tikzpicture}[node distance=0.85cm and 0.5cm]
     \node[stepcircle] (n1) {1};
-    \node[right=of n1, font=\Large\color{white}, yshift=-1pt] (t1) {The Problem \& Solution};
-    \draw[textsec!30, thin] ($(t1.south west)+(0,-0.1)$) -- ($(t1.south east)+(5,-0.1)$);
-    
+    \node[right=of n1, font=\Large\color{white}] (t1) {Introduction \& Problématique};
+    \draw[textsec!30, thin] ($(t1.south west)+(0,-0.15)$) -- ++(10,0);
+
     \node[stepcircle, below=of n1] (n2) {2};
-    \node[right=of n2, font=\Large\color{white}, yshift=-1pt] (t2) {System Architecture};
-    \draw[textsec!30, thin] ($(t2.south west)+(0,-0.1)$) -- ($(t2.south east)+(5,-0.1)$);
+    \node[right=of n2, font=\Large\color{white}] (t2) {Architecture du Système};
+    \draw[textsec!30, thin] ($(t2.south west)+(0,-0.15)$) -- ++(10,0);
 
     \node[stepcircle, below=of n2] (n3) {3};
-    \node[right=of n3, font=\Large\color{white}, yshift=-1pt] (t3) {Component Deep Dive};
-    \draw[textsec!30, thin] ($(t3.south west)+(0,-0.1)$) -- ($(t3.south east)+(5,-0.1)$);
+    \node[right=of n3, font=\Large\color{white}] (t3) {Étude Détaillée des Composants};
+    \draw[textsec!30, thin] ($(t3.south west)+(0,-0.15)$) -- ++(10,0);
 
     \node[stepcircle, below=of n3] (n4) {4};
-    \node[right=of n4, font=\Large\color{white}, yshift=-1pt] (t4) {Live Pipeline Demo};
-    \draw[textsec!30, thin] ($(t4.south west)+(0,-0.1)$) -- ($(t4.south east)+(5,-0.1)$);
+    \node[right=of n4, font=\Large\color{white}] (t4) {Infrastructure Docker \& Déploiement};
+    \draw[textsec!30, thin] ($(t4.south west)+(0,-0.15)$) -- ++(10,0);
 
     \node[stepcircle, below=of n4] (n5) {5};
-    \node[right=of n5, font=\Large\color{white}, yshift=-1pt] (t5) {Results \& Observability};
-    \draw[textsec!30, thin] ($(t5.south west)+(0,-0.1)$) -- ($(t5.south east)+(5,-0.1)$);
+    \node[right=of n5, font=\Large\color{white}] (t5) {Démonstration en Direct};
+    \draw[textsec!30, thin] ($(t5.south west)+(0,-0.15)$) -- ++(10,0);
+
+    \node[stepcircle, below=of n5] (n6) {6};
+    \node[right=of n6, font=\Large\color{white}] (t6) {Résultats \& Conclusion};
   \end{tikzpicture}
 \end{frame}
 
-% ==================================================================
-% SLIDE 3: THE PROBLEM WE SOLVE
-% ==================================================================
-\begin{frame}{The Problem We Solve}
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 1 : INTRODUCTION & PROBLÉMATIQUE
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{01}{Introduction \& Problématique}{Pourquoi la synchronisation en temps réel~?}
+
+% ── Diapositive : Qu'est-ce que le CDC ? ─────────────────────────
+\begin{frame}{Qu'est-ce que le CDC~?}
   \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[badcard, title=\faTimesCircle\ Without CDC (Batch)]
-        \begin{itemize}
-            \item Batch jobs run every hour \faArrowRight\ stale search results
-            \item Manual sync scripts \faArrowRight\ brittle and error-prone
-            \item Downtime required for bulk re-indexing
-            \item No audit trail of what changed and when
-        \end{itemize}
+    \begin{column}{0.55\textwidth}
+      \vspace{0.3cm}
+      \begin{tcolorbox}[card, title={\faBookOpen\ Change Data Capture}]
+        \textbf{Le CDC} (Change Data Capture) est une technique qui permet de
+        \textbf{capturer automatiquement} chaque modification (insertion, mise à jour,
+        suppression) survenue dans une base de données, puis de la \textbf{propager
+        en temps réel} vers d'autres systèmes.
+
+        \vspace{0.3cm}
+        \textbf{Principe fondamental :}\\
+        Au lieu de sonder la base périodiquement, on \textbf{écoute le journal
+        de transactions} (oplog, WAL, binlog) pour détecter les changements
+        dès qu'ils se produisent.
       \end{tcolorbox}
     \end{column}
-    \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[goodcard, title=\faCheckCircle\ With CDC (Real-Time)]
-        \begin{itemize}
-            \item Sub-200ms latency from write to search
-            \item Zero application code changes needed
-            \item Full audit log of every atomic change
-            \item Fault-tolerant: survives restarts safely
-        \end{itemize}
-      \end{tcolorbox}
-    \end{column}
-  \end{columns}
-  
-  \vspace{0.3cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{problem-diagram.png}{0.5\textwidth}{2.5cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} Traditional batch sync vs real-time CDC\end{center}
-\end{frame}
-
-% ==================================================================
-% SLIDE 4: SECTION DIVIDER 1
-% ==================================================================
-\begin{frame}[plain]
-  \begin{tikzpicture}[remember picture, overlay]
-    \fill[bgbody] (current page.south west) rectangle (current page.north east);
-    
-    % Left accent panel
-    \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
-    
-    % Decorative pattern
-    \begin{scope}[opacity=0.2]
-      \draw[white, thick] (-1,0) -- (4,5);
-      \draw[white, thick] (-1,2) -- (4,7);
-      \draw[white, thick] (-1,4) -- (4,9);
-    \end{scope}
-
-    \node[anchor=center, text=primary, font=\fontsize{60}{60}\bfseries] at ([xshift=0.165\paperwidth]current page.center) {01};
-    
-    \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
-      \begin{minipage}{0.55\textwidth}
-        {\Huge\bfseries System Architecture}\\[0.5em]
-        {\Large\color{accentsec} Designing the data flow from source to search.}
-      \end{minipage}
-    };
-  \end{tikzpicture}
-\end{frame}
-
-% ==================================================================
-% SLIDE 5: PIPELINE ARCHITECTURE
-% ==================================================================
-\begin{frame}{Complete Pipeline Architecture}
-  \begin{center}
-    \begin{tikzpicture}[node distance=1.8cm, every node/.style={scale=0.9}]
-      % Nodes
-      \node[component, fill=cMongo!10!surface, draw=cMongo] (mongo) {
-        \textcolor{cMongo}{\faDatabase}\\[0.3em]
-        \textbf{MongoDB}\\[0.1em]
-        \scriptsize Source Database
-      };
-      
-      \node[component, fill=cDebezium!10!surface, draw=cDebezium, right=of mongo] (connect) {
-        \textcolor{cDebezium}{\faPlug}\\[0.3em]
-        \textbf{Kafka Connect}\\[0.1em]
-        \scriptsize Debezium + ES Sink
-      };
-
-      \node[component, fill=cKafka!10!surface, draw=cKafka, right=of connect] (kafka) {
-        \textcolor{cKafka}{\faStream}\\[0.3em]
-        \textbf{Apache Kafka}\\[0.1em]
-        \scriptsize Event Broker
-      };
-
-      \node[component, fill=cElastic!10!surface, draw=cElastic, right=of kafka] (elastic) {
-        \textcolor{cElastic}{\faSearch}\\[0.3em]
-        \textbf{Elasticsearch}\\[0.1em]
-        \scriptsize Search Engine
-      };
-
-      % Ports
-      \node[below=0.2cm of mongo, text=textsec, font=\tiny] {Port 27017};
-      \node[below=0.2cm of connect, text=textsec, font=\tiny] {Port 8083};
-      \node[below=0.2cm of kafka, text=textsec, font=\tiny] {Port 9092};
-      \node[below=0.2cm of elastic, text=textsec, font=\tiny] {Port 9200};
-
-      % Arrows
-      \draw[arrow, cMongo] (mongo) -- node[above, font=\scriptsize, text=white] {oplog} (connect);
-      \draw[arrow, cDebezium] ([yshift=0.2cm]connect.east) -- node[above, font=\scriptsize, text=white] {produce} ([yshift=0.2cm]kafka.west);
-      \draw[arrow, cElastic] ([yshift=-0.2cm]kafka.west) -- node[below, font=\scriptsize, text=white] {consume} ([yshift=-0.2cm]connect.east);
-      \draw[arrow, cKafka] (connect) -- node[above, font=\scriptsize, text=white] {upsert} (elastic);
-    \end{tikzpicture}
-  \end{center}
-  
-  \vspace{0.3cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{architecture-screenshot.png}{0.8\textwidth}{2.5cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} Live pipeline running natively in Docker\end{center}
-\end{frame}
-
-% ==================================================================
-% SLIDE 6: DOCKER INFRASTRUCTURE
-% ==================================================================
-\begin{frame}[fragile]{Docker Infrastructure}
-  \begin{columns}[T]
-    \begin{column}{0.35\textwidth}
-      \begin{tcolorbox}[card, title=\faFolderOpen\ Project Structure]
-        \ttfamily\scriptsize
-        \textcolor{accent}{\faFolderOpen\ cdc-pipeline/}\\
-        \hspace*{0.5cm}\textcolor{textsec}{\faFolder\ app/}\\
-        \hspace*{1.0cm}\faFileCode\ demo.py\\
-        \hspace*{0.5cm}\textcolor{textsec}{\faFolder\ connectors/}\\
-        \hspace*{1.0cm}\faFileCode\ mongodb-source.json\\
-        \hspace*{1.0cm}\faFileCode\ elastic-sink.json\\
-        \hspace*{0.5cm}\textcolor{textsec}{\faFolder\ scripts/}\\
-        \hspace*{1.0cm}\faTerminal\ init-mongo.js\\
-        \hspace*{1.0cm}\faTerminal\ test-pipeline.sh\\
-        \hspace*{0.5cm}\textcolor{success}{\faDocker\ docker-compose.yml}
-      \end{tcolorbox}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{tcolorbox}[codebox]
-\begin{minted}{yaml}
-kafka:
-  image: apache/kafka:3.7.0
-  environment:
-    KAFKA_NODE_ID: 1
-    KAFKA_PROCESS_ROLES: broker,controller
-    KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-\end{minted}
-      \end{tcolorbox}
-      \begin{tikzpicture}[overlay, remember picture]
-        \node[fill=accentsec, text=white, rounded corners, inner sep=4pt, font=\scriptsize, drop shadow] 
-          (callout) at (0, 0.5) {\faInfoCircle\ No Zookeeper needed!};
-        \draw[accentsec, thick, -{Stealth}] (callout.north) ++(2,0) -- ++(1, 1.5);
+    \begin{column}{0.42\textwidth}
+      \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+        % Base source
+        \node[component=cMongo, minimum height=1.8cm] (src) {\faDatabase\\[0.3em] Base Source};
+        % Journal
+        \node[component=cDebezium, minimum height=1.2cm, below=0.8cm of src] (log) {\faFileAlt\\[0.2em] Journal (Oplog)};
+        % Flèche d'écoute
+        \draw[arrow, cDebezium] (src) -- node[right, font=\scriptsize, text=textsec] {écriture} (log);
+        % CDC
+        \node[component=accent, minimum height=1.2cm, right=1.2cm of log] (cdc) {\faPlug\\[0.2em] Moteur CDC};
+        \draw[arrow, accent] (log) -- node[above, font=\scriptsize, text=textsec] {lecture} (cdc);
+        % Destinations
+        \node[component=cElastic, minimum height=1cm, above right=0.5cm and 1cm of cdc] (d1) {\faSearch\ Recherche};
+        \node[component=cKafka, minimum height=1cm, below right=0.5cm and 1cm of cdc] (d2) {\faDatabase\ Analytics};
+        \draw[arrow, cElastic] (cdc) -- (d1);
+        \draw[arrow, cKafka] (cdc) -- (d2);
       \end{tikzpicture}
     \end{column}
   \end{columns}
-  
-  \vspace{0.4cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{docker-dashboard.png}{0.45\textwidth}{2cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} All 6 services running cleanly\end{center}
 \end{frame}
 
-% ==================================================================
-% SLIDE 7: SECTION DIVIDER 2
-% ==================================================================
-\begin{frame}[plain]
-  \begin{tikzpicture}[remember picture, overlay]
-    \fill[bgbody] (current page.south west) rectangle (current page.north east);
-    \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
-    
-    \begin{scope}[opacity=0.2]
-      \draw[white, thick] (-1,0) -- (4,5);
-      \draw[white, thick] (-1,2) -- (4,7);
-      \draw[white, thick] (-1,4) -- (4,9);
-    \end{scope}
-
-    \node[anchor=center, text=primary, font=\fontsize{60}{60}\bfseries] at ([xshift=0.165\paperwidth]current page.center) {02};
-    
-    \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
-      \begin{minipage}{0.55\textwidth}
-        {\Huge\bfseries Component Deep Dive}\\[0.5em]
-        {\Large\color{accentsec} Understanding the engine under the hood.}
-      \end{minipage}
-    };
-  \end{tikzpicture}
-\end{frame}
-
-% ==================================================================
-% SLIDE 8: MONGODB & THE OPLOG
-% ==================================================================
-\begin{frame}[fragile]{MongoDB \& The Oplog}
+% ── Diapositive : Le problème résolu ──────────────────────────────
+\begin{frame}{Le Problème que Nous Résolvons}
   \begin{columns}[T]
-    \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, title=\faServer\ Replica Set]
-        \scriptsize Debezium requires a MongoDB replica set (\texttt{rs0}). A standalone MongoDB does not generate an oplog.
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[badcard, title={\faTimesCircle\ Sans CDC (Approche Batch)}]
+        \begin{itemize}
+            \item Jobs batch toutes les heures \faArrowRight\ résultats de recherche \textbf{obsolètes}
+            \item Scripts de synchronisation manuels \faArrowRight\ \textbf{fragiles et sujets aux erreurs}
+            \item Temps d'arrêt requis pour la réindexation complète
+            \item Aucun journal d'audit des modifications
+            \item \textbf{Latence :} plusieurs minutes à heures
+        \end{itemize}
       \end{tcolorbox}
     \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, title=\faBook\ The Oplog]
-        \scriptsize A capped collection that keeps a rolling record of all operations that modify the database's data.
-      \end{tcolorbox}
-    \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, title=\faLayerGroup\ Collections]
-        \scriptsize We stream changes from \texttt{users}, \texttt{products}, and \texttt{orders} in the \texttt{appdb} database.
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[goodcard, title={\faCheckCircle\ Avec CDC (Temps Réel)}]
+        \begin{itemize}
+            \item Latence \textbf{inférieure à 200\,ms} de l'écriture à la recherche
+            \item \textbf{Zéro modification} du code applicatif nécessaire
+            \item Journal d'audit complet de chaque changement atomique
+            \item Tolérant aux pannes~: survit aux redémarrages
+            \item \textbf{Découplage total} source / destination
+        \end{itemize}
       \end{tcolorbox}
     \end{column}
   \end{columns}
 
+  \vspace{0.3cm}
+  \imageplaceholder{problem-diagram.png}{0.5\textwidth}{2cm}{Comparaison~: synchronisation batch vs CDC temps réel}
+\end{frame}
+
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 2 : ARCHITECTURE DU SYSTÈME
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{02}{Architecture du Système}{Conception du flux de données de bout en bout.}
+
+% ── Diapositive : Architecture complète ──────────────────────────
+\begin{frame}{Architecture Complète du Pipeline}
+  \begin{center}
+    \begin{tikzpicture}[node distance=1.6cm, every node/.style={scale=0.85}]
+      % Noeuds principaux
+      \node[component=cMongo] (mongo) {
+        \textcolor{cMongo}{\faDatabase}\\[0.3em]
+        \textbf{MongoDB 6.0}\\[0.1em]
+        \scriptsize Replica Set \texttt{rs0}
+      };
+
+      \node[component=cDebezium, right=of mongo] (connect) {
+        \textcolor{cDebezium}{\faPlug}\\[0.3em]
+        \textbf{Kafka Connect}\\[0.1em]
+        \scriptsize Debezium 2.5
+      };
+
+      \node[component=cKafka, right=of connect] (kafka) {
+        \textcolor{cKafka}{\faStream}\\[0.3em]
+        \textbf{Apache Kafka}\\[0.1em]
+        \scriptsize Mode KRaft
+      };
+
+      \node[component=cElastic, right=of kafka] (elastic) {
+        \textcolor{cElastic}{\faSearch}\\[0.3em]
+        \textbf{Elasticsearch}\\[0.1em]
+        \scriptsize 8.13.0
+      };
+
+      % Outils d'observation en dessous
+      \node[component=cKibana, below=1.2cm of elastic, minimum width=2cm, minimum height=1cm] (kibana) {
+        \textcolor{cKibana}{\faChartBar}\\[0.1em]
+        \scriptsize Kibana
+      };
+      \node[component=accent, below=1.2cm of kafka, minimum width=2cm, minimum height=1cm] (kafkaui) {
+        \textcolor{accent}{\faDesktop}\\[0.1em]
+        \scriptsize Kafka UI
+      };
+
+      % Ports
+      \node[below=0.15cm of mongo, text=textsec, font=\tiny] {:27017};
+      \node[below=0.15cm of connect, text=textsec, font=\tiny] {:8083};
+      \node[below=0.15cm of kafka, text=textsec, font=\tiny] {:9092};
+      \node[below=0.15cm of elastic, text=textsec, font=\tiny] {:9200};
+      \node[below=0.1cm of kibana, text=textsec, font=\tiny] {:5601};
+      \node[below=0.1cm of kafkaui, text=textsec, font=\tiny] {:8080};
+
+      % Flèches du flux de données
+      \draw[arrow, cMongo] (mongo) -- node[above, font=\scriptsize, text=white] {change streams} (connect);
+      \draw[arrow, cDebezium] (connect) -- node[above, font=\scriptsize, text=white] {produce} (kafka);
+      \draw[arrow, cKafka] (kafka) -- node[above, font=\scriptsize, text=white] {consume} (elastic);
+      \draw[arrow, cElastic] (elastic) -- (kibana);
+      \draw[arrow, accent, dashed] (kafka) -- (kafkaui);
+    \end{tikzpicture}
+  \end{center}
+
+  \vspace{0.2cm}
+  \imageplaceholder{architecture-screenshot.png}{0.7\textwidth}{2cm}{Pipeline complète fonctionnant nativement dans Docker}
+\end{frame}
+
+% ── Diapositive : Flux de données détaillé ───────────────────────
+\begin{frame}{Flux de Données Détaillé}
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.9cm, auto]
+      \draw[accentsec, thick] (0,-0.5) -- (0,-6.5);
+
+      \node[stepcircle] (s1) at (0,0) {1};
+      \node[right=0.4cm of s1, text=white, font=\normalsize] {L'application écrit dans \textbf{MongoDB} (replica set \texttt{rs0})};
+
+      \node[stepcircle] (s2) at (0,-1.3) {2};
+      \node[right=0.4cm of s2, text=white, font=\normalsize] {\textbf{Debezium} capture les changements via les \textit{change streams}};
+
+      \node[stepcircle] (s3) at (0,-2.6) {3};
+      \node[right=0.4cm of s3, text=white, font=\normalsize] {Les événements sont publiés dans des \textbf{topics Kafka}};
+
+      \node[stepcircle] (s4) at (0,-3.9) {4};
+      \node[right=0.4cm of s4, text=white, font=\normalsize] {Le connecteur \textbf{Elasticsearch Sink} consomme les événements};
+
+      \node[stepcircle] (s5) at (0,-5.2) {5};
+      \node[right=0.4cm of s5, text=white, font=\normalsize] {Les documents sont indexés et \textbf{instantanément cherchables}};
+
+      \node[stepcircle] (s6) at (0,-6.5) {6};
+      \node[right=0.4cm of s6, text=white, font=\normalsize] {Visualisation dans \textbf{Kibana} et monitoring via \textbf{Kafka UI}};
+    \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+% ── Diapositive : Stack technologique ────────────────────────────
+\begin{frame}{Stack Technologique}
+  \begin{center}
+    \footnotesize
+    \begin{tabular}{@{}>{\bfseries}l l l l@{}}
+      \toprule
+      \textbf{Composant} & \textbf{Image Docker} & \textbf{Version} & \textbf{Rôle} \\
+      \midrule
+      MongoDB        & \texttt{mongo}                        & 6.0   & Base de données source \\
+      Apache Kafka   & \texttt{apache/kafka}                 & 3.7.0 & Bus d'événements (KRaft) \\
+      Kafka Connect  & \texttt{debezium/connect}             & 2.5   & Plateforme de connecteurs \\
+      Debezium       & Intégré dans Connect                  & 2.5.4 & Moteur CDC MongoDB \\
+      Elasticsearch  & \texttt{elasticsearch}                & 8.13.0 & Moteur de recherche \\
+      Kibana         & \texttt{kibana}                       & 8.13.0 & Tableau de bord \\
+      Kafka UI       & \texttt{provectuslabs/kafka-ui}       & latest & Monitoring des topics \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
   \vspace{0.4cm}
-  \textbf{\color{accent} Raw Oplog Entry Format:}
+  \imageplaceholder{tech-logos.png}{0.7\textwidth}{1.5cm}{Logos des technologies utilisées dans le pipeline}
+\end{frame}
+
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 3 : ÉTUDE DÉTAILLÉE DES COMPOSANTS
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{03}{Étude Détaillée des Composants}{Comprendre le moteur sous le capot.}
+
+% ── Diapositive : MongoDB & l'Oplog ─────────────────────────────
+\begin{frame}[fragile]{MongoDB \& l'Oplog}
+  \begin{columns}[T]
+    \begin{column}{0.31\textwidth}
+      \begin{tcolorbox}[card, title={\faServer\ Replica Set}]
+        \scriptsize Debezium nécessite un \textit{replica set} MongoDB (\texttt{rs0}).
+        Un MongoDB autonome ne génère pas d'oplog.
+      \end{tcolorbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{tcolorbox}[card, title={\faBook\ L'Oplog}]
+        \scriptsize Une collection plafonnée qui conserve un historique déroulant de toutes
+        les opérations de modification de données.
+      \end{tcolorbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{tcolorbox}[card, title={\faLayerGroup\ Collections}]
+        \scriptsize Nous capturons les changements de \texttt{users}, \texttt{products},
+        et \texttt{orders} dans la base \texttt{appdb}.
+      \end{tcolorbox}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.3cm}
+  \textbf{\color{accent} Initialisation du Replica Set~:}
   \begin{tcolorbox}[codebox]
 \begin{minted}{javascript}
-{ 
-  "ts": Timestamp(1623456789, 1), 
-  "op": "i", 
-  "ns": "appdb.users", 
-  "o": { "_id": ObjectId("..."), "name": "Alice", "role": "engineer" } 
-}
+// Étape 1 : Initiation du replica set "rs0"
+rs.initiate({
+  _id: "rs0",
+  members: [{ _id: 0, host: "mongodb:27017" }]
+});
+
+// Étape 2 : Création de la base et insertion de données
+const appdb = db.getSiblingDB("appdb");
+appdb.users.insertMany([
+  { name: "Alice", email: "alice@example.com", role: "engineer" },
+  { name: "Bob",   email: "bob@example.com",   role: "designer" }
+]);
 \end{minted}
   \end{tcolorbox}
 
-  \vspace{0.2cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{mongo-compass.png}{0.55\textwidth}{2cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} MongoDB Compass showing the oplog\end{center}
+  \vspace{0.1cm}
+  \imageplaceholder{mongo-compass.png}{0.45\textwidth}{1.3cm}{MongoDB Compass montrant les collections \texttt{appdb}}
 \end{frame}
 
-% ==================================================================
-% SLIDE 9: DEBEZIUM: THE CDC ENGINE
-% ==================================================================
-\begin{frame}[fragile]{Debezium: The CDC Engine}
+% ── Diapositive : Debezium — Le moteur CDC ────────────────────────
+\begin{frame}[fragile]{Debezium~: Le Moteur CDC}
   \begin{columns}[T]
     \begin{column}{0.4\textwidth}
-      \vspace{0.5cm}
+      \vspace{0.3cm}
       \textcolor{accent}{\Huge \faBroadcastTower}
-      \vspace{0.5cm}
+      \vspace{0.4cm}
       \begin{itemize}
-        \item Acts as a MongoDB replica
-        \item Tails the oplog in real-time
-        \item \textbf{Snapshot Mode:} Dumps existing data on first boot
-        \item \textbf{SMT (Single Message Transforms):} Cleans complex payloads before sending to Kafka
+        \item Se comporte comme un \textbf{réplica MongoDB}
+        \item Lit les \textit{change streams} en temps réel
+        \item \textbf{Mode snapshot~:} capture l'état initial au démarrage
+        \item \textbf{SMT} (Single Message Transforms)~: nettoie et restructure les événements
+        \item Gestion complète des \textbf{suppressions} (mode rewrite + tombstones)
       \end{itemize}
     \end{column}
-    
+
     \begin{column}{0.55\textwidth}
       \begin{tcolorbox}[codebox]
 \begin{minted}{json}
 {
   "name": "mongodb-source",
   "config": {
-    "connector.class": "io.debezium...MongoDbConnector",
-    "mongodb.connection.string": "mongodb://mongodb/?replicaSet=rs0",
+    "connector.class":
+      "io.debezium...MongoDbConnector",
+    "mongodb.connection.string":
+      "mongodb://mongodb/?replicaSet=rs0",
     "database.include.list": "appdb",
+    "collection.include.list":
+      "appdb.users,appdb.products,appdb.orders",
     "topic.prefix": "dbserver1",
-    "capture.mode": "change_streams_update_full",
+    "capture.mode":
+      "change_streams_update_full",
     "transforms": "unwrap",
-    "transforms.unwrap.type": "...ExtractNewDocumentState",
-    "transforms.unwrap.drop.tombstones": "false",
-    "transforms.unwrap.delete.handling.mode": "rewrite"
+    "transforms.unwrap.delete.handling.mode":
+      "rewrite"
   }
 }
 \end{minted}
@@ -468,26 +547,24 @@ kafka:
     \end{column}
   \end{columns}
 
-  \vspace{0.2cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{debezium-ui.png}{0.45\textwidth}{1.5cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} Debezium connector status: RUNNING\end{center}
+  \vspace{0.15cm}
+  \imageplaceholder{debezium-status.png}{0.45\textwidth}{1.2cm}{Statut du connecteur Debezium~: \texttt{RUNNING}}
 \end{frame}
 
-% ==================================================================
-% SLIDE 10: THE CDC EVENT FORMAT
-% ==================================================================
-\begin{frame}[fragile]{The CDC Event Format}
+% ── Diapositive : Format des événements CDC ──────────────────────
+\begin{frame}[fragile]{Format des Événements CDC}
   \begin{columns}[T]
-    \begin{column}{0.7\textwidth}
+    \begin{column}{0.65\textwidth}
+      \textbf{\color{accent} Événement Debezium après transformation SMT~:}
       \begin{tcolorbox}[codebox]
 \begin{minted}{json}
 {
   "_id": "6a3bdb4cc0bf539cca9df8a3",
   "name": "Alice Johnson",
   "email": "alice@example.com",
+  "age": 29,
   "role": "engineer",
+  "createdAt": "2024-06-15T10:30:00Z",
   "__deleted": false,
   "__op": "u",
   "__ts_ms": 1782310710601
@@ -495,127 +572,124 @@ kafka:
 \end{minted}
       \end{tcolorbox}
     \end{column}
-    \begin{column}{0.28\textwidth}
-      \vspace{0.5cm}
+    \begin{column}{0.32\textwidth}
+      \vspace{0.3cm}
       \begin{tcolorbox}[card, colback=warning!20!surface, boxrule=1pt, colframe=warning, size=small]
-        \scriptsize\textbf{\textcolor{warning}{\_\_op}}\\ Operation type (c, u, d, r)
+        \scriptsize\textbf{\textcolor{warning}{\_\_op}}\\ Type d'opération\\(c, u, d, r)
       \end{tcolorbox}
       \begin{tcolorbox}[card, colback=accent!20!surface, boxrule=1pt, colframe=accent, size=small]
-        \scriptsize\textbf{\textcolor{accent}{\_\_ts\_ms}}\\ Millisecond timestamp
+        \scriptsize\textbf{\textcolor{accent}{\_\_ts\_ms}}\\ Horodatage en millisecondes
       \end{tcolorbox}
       \begin{tcolorbox}[card, colback=success!20!surface, boxrule=1pt, colframe=success, size=small]
-        \scriptsize\textbf{\textcolor{success}{State}}\\ Clean "after" state of the document via SMT
-      \end{tcolorbox}
-    \end{column}
-  \end{columns}
-
-  \vspace{0.5cm}
-  \begin{center}
-    \begin{tikzpicture}
-      \node[card, fill=success!20!surface, draw=success] (c) {\texttt{c} = create};
-      \node[card, fill=warning!20!surface, draw=warning, right=0.5cm of c] (u) {\texttt{u} = update};
-      \node[card, fill=red!20!surface, draw=red, right=0.5cm of u] (d) {\texttt{d} = delete};
-      \node[card, fill=accentsec!20!surface, draw=accentsec, right=0.5cm of d] (r) {\texttt{r} = read (snapshot)};
-    \end{tikzpicture}
-  \end{center}
-\end{frame}
-
-% ==================================================================
-% SLIDE 11: APACHE KAFKA (KRAFT MODE)
-% ==================================================================
-\begin{frame}[fragile]{Apache Kafka (KRaft Mode)}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[badcard, title=\sout{Old: Kafka + Zookeeper}]
-        \begin{itemize}
-          \item Two separate distributed systems
-          \item Double the infrastructure overhead
-          \item Complex security configurations
-        \end{itemize}
-      \end{tcolorbox}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[goodcard, title=\faCheckCircle\ New: Kafka KRaft]
-        \begin{itemize}
-          \item Single binary architecture
-          \item Faster controller failovers
-          \item Radically simplified Docker setup
-        \end{itemize}
+        \scriptsize\textbf{\textcolor{success}{\_\_deleted}}\\ Indicateur de suppression
       \end{tcolorbox}
     \end{column}
   \end{columns}
 
   \vspace{0.3cm}
   \begin{center}
-    \begin{tikzpicture}[node distance=0.5cm]
-      \node[component, fill=cKafka, text=white, minimum width=2cm, minimum height=1cm] (p1) {Partition 0};
-      \node[component, fill=cKafka, text=white, minimum width=2cm, minimum height=1cm, right=of p1] (p2) {Partition 1};
-      \node[component, fill=cKafka, text=white, minimum width=2cm, minimum height=1cm, right=of p2] (p3) {Partition 2};
-      
-      \node[below=0.1cm of p1, text=textsec, font=\tiny] {Offsets: 0 \faArrowRight\ 45};
-      \node[below=0.1cm of p2, text=textsec, font=\tiny] {Offsets: 0 \faArrowRight\ 32};
-      \node[below=0.1cm of p3, text=textsec, font=\tiny] {Offsets: 0 \faArrowRight\ 89};
+    \begin{tikzpicture}[node distance=0.3cm]
+      \node[fill=success!20!surface, draw=success, rounded corners, inner sep=6pt, font=\scriptsize\bfseries, text=success] (c) {\texttt{c} = création};
+      \node[fill=warning!20!surface, draw=warning, rounded corners, inner sep=6pt, font=\scriptsize\bfseries, text=warning, right=of c] (u) {\texttt{u} = mise à jour};
+      \node[fill=danger!20!surface, draw=danger, rounded corners, inner sep=6pt, font=\scriptsize\bfseries, text=danger, right=of u] (d) {\texttt{d} = suppression};
+      \node[fill=accentsec!20!surface, draw=accentsec, rounded corners, inner sep=6pt, font=\scriptsize\bfseries, text=accentsec, right=of d] (r) {\texttt{r} = lecture (snapshot)};
     \end{tikzpicture}
   \end{center}
 \end{frame}
 
-% ==================================================================
-% SLIDE 12: KAFKA TOPICS & MESSAGE FLOW
-% ==================================================================
-\begin{frame}{Kafka Topics \& Message Flow}
-  \begin{center}
-    \begin{tikzpicture}[node distance=1.5cm, every node/.style={scale=0.9}]
-      \node[component, fill=cDebezium!30!surface, draw=cDebezium] (prod) {\textbf{Debezium}\\[0.1em]\scriptsize (Producer)};
-      
-      \node[rectangle, draw=accent, thick, rounded corners, right=2cm of prod, yshift=1cm] (t1) {\texttt{dbserver1.appdb.users}};
-      \node[rectangle, draw=accent, thick, rounded corners, right=2cm of prod] (t2) {\texttt{dbserver1.appdb.products}};
-      \node[rectangle, draw=accent, thick, rounded corners, right=2cm of prod, yshift=-1cm] (t3) {\texttt{dbserver1.appdb.orders}};
-      
-      \node[component, fill=cElastic!30!surface, draw=cElastic, right=2cm of t2] (cons) {\textbf{ES Sink}\\[0.1em]\scriptsize (Consumer)};
+% ── Diapositive : Apache Kafka (Mode KRaft) ──────────────────────
+\begin{frame}[fragile]{Apache Kafka (Mode KRaft)}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[badcard, title={\sout{Ancien~: Kafka + Zookeeper}}]
+        \begin{itemize}
+          \item Deux systèmes distribués distincts
+          \item Double surcharge d'infrastructure
+          \item Configuration de sécurité complexe
+          \item Maintenabilité réduite
+        \end{itemize}
+      \end{tcolorbox}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[goodcard, title={\faCheckCircle\ Nouveau~: Kafka KRaft}]
+        \begin{itemize}
+          \item Architecture à binaire unique
+          \item Basculement du contrôleur plus rapide
+          \item Configuration Docker radicalement simplifiée
+          \item Recommandé pour la production
+        \end{itemize}
+      \end{tcolorbox}
+    \end{column}
+  \end{columns}
 
-      \draw[arrow] (prod.east) -- (t1.west);
-      \draw[arrow] (prod.east) -- (t2.west);
-      \draw[arrow] (prod.east) -- (t3.west);
-      
-      \draw[arrow] (t1.east) -- (cons.west);
-      \draw[arrow] (t2.east) -- (cons.west);
-      \draw[arrow] (t3.east) -- (cons.west);
+  \vspace{0.3cm}
+  \begin{tcolorbox}[codebox]
+\begin{minted}{yaml}
+kafka:
+  image: apache/kafka:3.7.0
+  environment:
+    KAFKA_NODE_ID: 1
+    KAFKA_PROCESS_ROLES: broker,controller     # KRaft: un seul processus
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+    KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+    CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"      # ID fixe requis par KRaft
+\end{minted}
+  \end{tcolorbox}
+\end{frame}
+
+% ── Diapositive : Topics Kafka & flux de messages ────────────────
+\begin{frame}{Topics Kafka \& Flux de Messages}
+  \begin{center}
+    \begin{tikzpicture}[node distance=1.4cm, every node/.style={scale=0.85}]
+      \node[component=cDebezium] (prod) {\textbf{Debezium}\\[0.1em]\scriptsize (Producteur)};
+
+      \node[rectangle, draw=accent, thick, rounded corners, fill=accent!10!surface,
+            right=1.8cm of prod, yshift=1.2cm, font=\small\ttfamily, text=white] (t1) {dbserver1.appdb.users};
+      \node[rectangle, draw=accent, thick, rounded corners, fill=accent!10!surface,
+            right=1.8cm of prod, font=\small\ttfamily, text=white] (t2) {dbserver1.appdb.products};
+      \node[rectangle, draw=accent, thick, rounded corners, fill=accent!10!surface,
+            right=1.8cm of prod, yshift=-1.2cm, font=\small\ttfamily, text=white] (t3) {dbserver1.appdb.orders};
+
+      \node[component=cElastic, right=1.8cm of t2] (cons) {\textbf{ES Sink}\\[0.1em]\scriptsize (Consommateur)};
+
+      \draw[arrow, cDebezium] (prod.east) -- (t1.west);
+      \draw[arrow, cDebezium] (prod.east) -- (t2.west);
+      \draw[arrow, cDebezium] (prod.east) -- (t3.west);
+
+      \draw[arrow, cElastic] (t1.east) -- (cons.west);
+      \draw[arrow, cElastic] (t2.east) -- (cons.west);
+      \draw[arrow, cElastic] (t3.east) -- (cons.west);
     \end{tikzpicture}
   \end{center}
 
   \vspace{0.2cm}
   \begin{center}
     \footnotesize
-    \begin{tabular}{@{}lllc@{}}
+    \begin{tabular}{@{}l l l c@{}}
       \toprule
-      \textbf{Topic Name} & \textbf{Partitions} & \textbf{Retention} & \textbf{Message Key} \\
+      \textbf{Nom du Topic} & \textbf{Partitions} & \textbf{Rétention} & \textbf{Clé de message} \\
       \midrule
-      \texttt{dbserver1.appdb.users} & 1 (Order guaranteed) & 7 days & MongoDB \texttt{\_id} \\
-      \texttt{dbserver1.appdb.products} & 1 (Order guaranteed) & 7 days & MongoDB \texttt{\_id} \\
-      \texttt{dbserver1.appdb.orders} & 1 (Order guaranteed) & 7 days & MongoDB \texttt{\_id} \\
+      \texttt{dbserver1.appdb.users}    & 1 (ordre garanti) & 7 jours & MongoDB \texttt{\_id} \\
+      \texttt{dbserver1.appdb.products} & 1 (ordre garanti) & 7 jours & MongoDB \texttt{\_id} \\
+      \texttt{dbserver1.appdb.orders}   & 1 (ordre garanti) & 7 jours & MongoDB \texttt{\_id} \\
       \bottomrule
     \end{tabular}
   \end{center}
 
-  \vspace{0.2cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{kafka-ui.png}{0.7\textwidth}{1.5cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} Kafka UI showing live topic throughput\end{center}
+  \vspace{0.15cm}
+  \imageplaceholder{kafka-ui-topics.png}{0.6\textwidth}{1.5cm}{Kafka UI affichant les topics et le débit en temps réel}
 \end{frame}
 
-% ==================================================================
-% SLIDE 13: ELASTICSEARCH: THE DESTINATION
-% ==================================================================
-\begin{frame}[fragile]{Elasticsearch: The Destination}
+% ── Diapositive : Elasticsearch — La destination ─────────────────
+\begin{frame}[fragile]{Elasticsearch~: La Destination}
   \begin{columns}[T]
     \begin{column}{0.4\textwidth}
-      \vspace{0.5cm}
+      \vspace{0.3cm}
       \begin{itemize}
-        \item \textbf{Upsert Method:} If ID exists $\rightarrow$ update. If not $\rightarrow$ insert.
-        \item \textbf{Regex Router SMT:} Strips the ugly \texttt{dbserver1.appdb.} prefix so indices are cleanly named.
-        \item \textbf{Tombstone Handling:} Deletes documents natively when Debezium sends a null payload.
-        \item \textbf{ID Mapping:} Forces ES to use the exact MongoDB \texttt{\_id}.
+        \item \textbf{Méthode Upsert~:} Si l'ID existe $\rightarrow$ mise à jour. Sinon $\rightarrow$ insertion.
+        \item \textbf{RegexRouter SMT~:} Supprime le préfixe \texttt{dbserver1.appdb.} pour des index propres.
+        \item \textbf{Gestion des Tombstones~:} Supprime nativement les documents.
+        \item \textbf{Mapping des ID~:} Utilise le \texttt{\_id} MongoDB comme ID Elasticsearch.
       \end{itemize}
     \end{column}
     \begin{column}{0.55\textwidth}
@@ -624,15 +698,21 @@ kafka:
 {
   "name": "elasticsearch-sink",
   "config": {
-    "connector.class": "io.aiven...ElasticsearchSinkConnector",
-    "topics": "dbserver1.appdb.users",
+    "connector.class":
+      "io.aiven...ElasticsearchSinkConnector",
+    "topics":
+      "dbserver1.appdb.users,...",
+    "connection.url":
+      "http://elasticsearch:9200",
     "write.method": "upsert",
     "key.ignore": "false",
     "behavior.on.null.values": "delete",
-    "transforms": "extractId,renameTopics,removeId",
-    "transforms.renameTopics.type": "...RegexRouter",
-    "transforms.renameTopics.regex": "dbserver1\\.appdb\\.(.*)",
-    "transforms.renameTopics.replacement": "$1"
+    "transforms":
+      "extractId,renameTopics,removeId",
+    "transforms.renameTopics.regex":
+      "dbserver1\\.appdb\\.(.*)",
+    "transforms.renameTopics.replacement":
+      "$1"
   }
 }
 \end{minted}
@@ -640,170 +720,310 @@ kafka:
     \end{column}
   \end{columns}
 
-  \vspace{0.3cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{kibana-discover.png}{0.45\textwidth}{1.5cm}
-  \vspace{-0.3cm}
-  \begin{center}\scriptsize\color{textsec} Kibana Discover showing real-time indexed documents\end{center}
+  \vspace{0.15cm}
+  \imageplaceholder{kibana-discover.png}{0.45\textwidth}{1.2cm}{Kibana Discover montrant les documents indexés en temps réel}
 \end{frame}
 
-% ==================================================================
-% SLIDE 14: SECTION DIVIDER 3
-% ==================================================================
-\begin{frame}[plain]
-  \begin{tikzpicture}[remember picture, overlay]
-    \fill[bgbody] (current page.south west) rectangle (current page.north east);
-    \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
-    
-    \begin{scope}[opacity=0.2]
-      \draw[white, thick] (-1,0) -- (4,5);
-      \draw[white, thick] (-1,2) -- (4,7);
-      \draw[white, thick] (-1,4) -- (4,9);
-    \end{scope}
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 4 : INFRASTRUCTURE DOCKER & DÉPLOIEMENT
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{04}{Infrastructure \& Déploiement}{Conteneurisation et automatisation avec Docker Compose.}
 
-    \node[anchor=center, text=primary, font=\fontsize{60}{60}\bfseries] at ([xshift=0.165\paperwidth]current page.center) {03};
-    
-    \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
-      \begin{minipage}{0.55\textwidth}
-        {\Huge\bfseries Live Pipeline Demo}\\[0.5em]
-        {\Large\color{accentsec} Sub-200ms from write to search.}
-      \end{minipage}
-    };
-  \end{tikzpicture}
-\end{frame}
-
-% ==================================================================
-% SLIDE 15: DEMO LIFECYCLE
-% ==================================================================
-\begin{frame}{Demo: Step-by-Step Event Lifecycle}
-  \begin{columns}
-    \begin{column}{0.65\textwidth}
-      \begin{tikzpicture}[node distance=0.8cm, auto]
-        \draw[accentsec, thick] (0,-0.5) -- (0,-5.5);
-        
-        \node[stepcircle] (s1) at (0,0) {1};
-        \node[right=0.3cm of s1, text=white] {\textbf{App inserts document} \small \textcolor{textsec}{\faArrowRight\ MongoDB}};
-
-        \node[stepcircle] (s2) at (0,-1.2) {2};
-        \node[right=0.3cm of s2, text=white] {\textbf{MongoDB engine writes to oplog}};
-
-        \node[stepcircle] (s3) at (0,-2.4) {3};
-        \node[right=0.3cm of s3, text=white] {\textbf{Debezium tailer detects oplog entry}};
-
-        \node[stepcircle] (s4) at (0,-3.6) {4};
-        \node[right=0.3cm of s4, text=white] {\textbf{Event published to Kafka topic}};
-
-        \node[stepcircle] (s5) at (0,-4.8) {5};
-        \node[right=0.3cm of s5, text=white] {\textbf{ES Sink consumes event \& Upserts}};
-
-        \node[stepcircle] (s6) at (0,-6.0) {6};
-        \node[right=0.3cm of s6, text=white] {\textbf{Document instantly searchable in Elastic}};
-      \end{tikzpicture}
-    \end{column}
+% ── Diapositive : Docker Compose ─────────────────────────────────
+\begin{frame}[fragile]{Infrastructure Docker Compose}
+  \begin{columns}[T]
     \begin{column}{0.35\textwidth}
-      \begin{tcolorbox}[card, colback=accent!10!surface, colframe=accent, boxrule=1pt, halign=center]
-        \Huge \textbf{\textcolor{accent}{\textasciitilde50ms}}\\
-        \normalsize \textcolor{textsec}{End-to-End Latency}
+      \begin{tcolorbox}[card, title={\faFolderOpen\ Structure du Projet}]
+        \ttfamily\scriptsize
+        \textcolor{accent}{\faFolderOpen\ cdc-pipeline/}\\
+        \hspace*{0.4cm}\textcolor{success}{\faDocker\ docker-compose.yml}\\
+        \hspace*{0.4cm}\faFileAlt\ .env\\
+        \hspace*{0.4cm}\faFileAlt\ Makefile\\
+        \hspace*{0.4cm}\textcolor{textsec}{\faFolder\ connectors/}\\
+        \hspace*{0.8cm}\faFileCode\ mongodb-source.json\\
+        \hspace*{0.8cm}\faFileCode\ elasticsearch-sink.json\\
+        \hspace*{0.4cm}\textcolor{textsec}{\faFolder\ scripts/}\\
+        \hspace*{0.8cm}\faTerminal\ init-mongo.js\\
+        \hspace*{0.8cm}\faTerminal\ init-connectors.sh\\
+        \hspace*{0.8cm}\faTerminal\ test-pipeline.sh\\
+        \hspace*{0.4cm}\textcolor{textsec}{\faFolder\ app/}\\
+        \hspace*{0.8cm}\faPython\ demo.py\\
+        \hspace*{0.8cm}\faFileAlt\ requirements.txt
       \end{tcolorbox}
-      
-      \vspace{0.5cm}
-      % PLACEHOLDER: replace with actual screenshot
-      \imageplaceholder{demo-terminal.png}{\textwidth}{3cm}
-      \vspace{-0.3cm}
-      \begin{center}\scriptsize\color{textsec} Terminal output during live demo\end{center}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \textbf{\color{accent} 6 services orchestrés~:}
+      \begin{tcolorbox}[codebox]
+\begin{minted}{yaml}
+services:
+  mongodb:       # Mongo 6.0 en replica set
+    image: mongo:6.0
+    command: ["mongod", "--replSet", "rs0"]
+
+  kafka:         # KRaft — pas de Zookeeper
+    image: apache/kafka:3.7.0
+
+  kafka-connect: # Debezium + ES Sink
+    image: debezium/connect:2.5
+
+  elasticsearch: # Moteur de recherche
+    image: elasticsearch:8.13.0
+
+  kibana:        # Visualisation des données
+    image: kibana:8.13.0
+
+  kafka-ui:      # Monitoring des topics
+    image: provectuslabs/kafka-ui:latest
+\end{minted}
+      \end{tcolorbox}
     \end{column}
   \end{columns}
+
+  \vspace{0.15cm}
+  \imageplaceholder{docker-dashboard.png}{0.45\textwidth}{1.2cm}{Tableau de bord Docker montrant les 6 services actifs}
 \end{frame}
 
-% ==================================================================
-% SLIDE 16: PYTHON DEMO APPLICATION
-% ==================================================================
-\begin{frame}[fragile]{Demo: Python Application Output}
+% ── Diapositive : Automatisation Makefile ────────────────────────
+\begin{frame}[fragile]{Automatisation avec le Makefile}
+  \begin{center}
+    \footnotesize
+    \begin{tabular}{@{}>{\ttfamily}l l@{}}
+      \toprule
+      \textbf{Commande} & \textbf{Description} \\
+      \midrule
+      make up             & Démarrer tous les services Docker \\
+      make init           & Initialiser le replica set MongoDB + enregistrer les connecteurs \\
+      make test           & Exécuter le test de bout en bout INSERT → UPDATE → DELETE \\
+      make demo           & Lancer l'application Python de démonstration \\
+      make logs-connect   & Afficher les logs de Kafka Connect en continu \\
+      make status         & Afficher le statut des connecteurs via l'API REST \\
+      make down           & Arrêter et supprimer tous les conteneurs et volumes \\
+      make reset          & Remise à zéro complète et redémarrage \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.3cm}
+  \textbf{\color{accent} Démarrage rapide en 3 commandes~:}
+  \begin{tcolorbox}[codebox]
+\begin{minted}{bash}
+# 1. Démarrer tous les services
+make up
+
+# 2. Attendre ~90 secondes pour Kafka Connect, puis :
+make init
+
+# 3. Exécuter le test de bout en bout
+make test
+\end{minted}
+  \end{tcolorbox}
+\end{frame}
+
+% ── Diapositive : Script d'initialisation ────────────────────────
+\begin{frame}[fragile]{Scripts d'Initialisation}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
+      \textbf{\color{accent} init-connectors.sh}
       \begin{tcolorbox}[codebox]
-\begin{minted}{python}
-while True:
-  # 1. Insert into MongoDB
-  doc_id, _ = do_insert(collection)
-  
-  # 2. Wait briefly
-  time.sleep(0.5)
-  
-  # 3. Query Elasticsearch directly
-  es_state = query_es(session, doc_id)
-  
-  # 4. Measure latency & print
-  latency_ms = (t_end - t_start) * 1000
-  print_comparison(doc_id, es_state, latency_ms)
+\begin{minted}{bash}
+# 1. Attendre que Kafka Connect
+#    soit prêt (max 60s)
+while ! curl -sf $CONNECT_URL; do
+  sleep 2
+done
+
+# 2. Enregistrer le connecteur Source
+curl -X POST $CONNECT_URL/connectors \
+  -d @connectors/mongodb-source.json
+
+# 3. Enregistrer le connecteur Sink
+curl -X POST $CONNECT_URL/connectors \
+  -d @connectors/elasticsearch-sink.json
 \end{minted}
       \end{tcolorbox}
     \end{column}
     \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[card, colback=black, colframe=black, coltext=green!80!white, fontupper=\ttfamily\scriptsize]
-[INSERT] user\_id=abc123 \faArrowRight\ MongoDB: OK\\
-[QUERY]  user\_id=abc123 \faArrowRight\ Elasticsearch:\\
-\hspace*{1cm} FOUND (lag: 42.1ms)\\
-----------------------------------------\\
-[UPDATE] user\_id=abc123 \faArrowRight\ MongoDB: OK\\
-[QUERY]  user\_id=abc123 \faArrowRight\ Elasticsearch:\\
-\hspace*{1cm} UPDATED (lag: 53.8ms)\\
-----------------------------------------\\
-[DELETE] user\_id=abc123 \faArrowRight\ MongoDB: OK\\
-[QUERY]  user\_id=abc123 \faArrowRight\ Elasticsearch:\\
-\hspace*{1cm} NOT FOUND (lag: 39.4ms)
+      \textbf{\color{accent} Données de test initiales}
+      \begin{tcolorbox}[codebox]
+\begin{minted}{javascript}
+// 5 utilisateurs
+appdb.users.insertMany([
+  { name: "Alice Johnson",
+    email: "alice@example.com",
+    age: 29, role: "engineer" },
+  // ...
+]);
+
+// 5 produits & 5 commandes
+appdb.products.insertMany([...]);
+appdb.orders.insertMany([...]);
+\end{minted}
       \end{tcolorbox}
     \end{column}
   \end{columns}
-  
-  \vspace{0.4cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{demo-output.png}{0.5\textwidth}{1.5cm}
+
+  \vspace{0.2cm}
+  \imageplaceholder{connector-status.png}{0.5\textwidth}{1.2cm}{Sortie du script~: connecteurs enregistrés avec succès}
 \end{frame}
 
-% ==================================================================
-% SLIDE 17: SECTION DIVIDER 4
-% ==================================================================
-\begin{frame}[plain]
-  \begin{tikzpicture}[remember picture, overlay]
-    \fill[bgbody] (current page.south west) rectangle (current page.north east);
-    \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
-    
-    \begin{scope}[opacity=0.2]
-      \draw[white, thick] (-1,0) -- (4,5);
-      \draw[white, thick] (-1,2) -- (4,7);
-      \draw[white, thick] (-1,4) -- (4,9);
-    \end{scope}
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 5 : DÉMONSTRATION EN DIRECT
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{05}{Démonstration en Direct}{Moins de 200\,ms de l'écriture à la recherche.}
 
-    \node[anchor=center, text=primary, font=\fontsize{60}{60}\bfseries] at ([xshift=0.165\paperwidth]current page.center) {04};
-    
-    \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
-      \begin{minipage}{0.55\textwidth}
-        {\Huge\bfseries Results \& Observability}\\[0.5em]
-        {\Large\color{accentsec} Ensuring reliability in production.}
-      \end{minipage}
-    };
-  \end{tikzpicture}
+% ── Diapositive : Test de bout en bout ───────────────────────────
+\begin{frame}[fragile]{Test de Bout en Bout (E2E)}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{\color{accent} Scénario de test automatisé~:}
+      \vspace{0.2cm}
+      \begin{tikzpicture}[node distance=0.7cm]
+        \draw[accentsec, thick] (0,-0.3) -- (0,-4.5);
+
+        \node[stepcircle] (s1) at (0,0) {1};
+        \node[right=0.3cm of s1, text=white, font=\small] {\textbf{INSERT} un document dans MongoDB};
+
+        \node[stepcircle] (s2) at (0,-1.2) {2};
+        \node[right=0.3cm of s2, text=white, font=\small] {Vérifier l'apparition dans ES};
+
+        \node[stepcircle] (s3) at (0,-2.4) {3};
+        \node[right=0.3cm of s3, text=white, font=\small] {\textbf{UPDATE} le document};
+
+        \node[stepcircle] (s4) at (0,-3.6) {4};
+        \node[right=0.3cm of s4, text=white, font=\small] {Vérifier la mise à jour dans ES};
+
+        \node[stepcircle] (s5) at (0,-4.8) {5};
+        \node[right=0.3cm of s5, text=white, font=\small] {\textbf{DELETE} et vérifier la suppression};
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[card, colback=black, colframe=black, coltext=green!80!white, fontupper=\ttfamily\scriptsize]
+        ═══════════════════════════════════\\
+        \hspace*{0.2cm}CDC Pipeline End-to-End Test\\
+        ═══════════════════════════════════\\
+        \\
+        {[TEST]} TEST 1/3 --- INSERT\\
+        \hspace*{0.3cm}Inserted doc \_id: 6a3bd...\\
+        \hspace*{0.3cm}\textcolor{green!80!white}{✔ PASS} INSERT propagé (hits: 1)\\
+        \\
+        {[TEST]} TEST 2/3 --- UPDATE\\
+        \hspace*{0.3cm}\textcolor{green!80!white}{✔ PASS} UPDATE propagé\\
+        \\
+        {[TEST]} TEST 3/3 --- DELETE\\
+        \hspace*{0.3cm}\textcolor{green!80!white}{✔ PASS} DELETE propagé\\
+        \\
+        ═══════════════════════════════════\\
+        \hspace*{0.2cm}\textcolor{green!80!white}{ALL TESTS PASSED ✔}\\
+        ═══════════════════════════════════
+      \end{tcolorbox}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.2cm}
+  \imageplaceholder{test-results.png}{0.5\textwidth}{1.2cm}{Résultats du test E2E dans le terminal}
 \end{frame}
 
-% ==================================================================
-% SLIDE 18: PERFORMANCE RESULTS
-% ==================================================================
-\begin{frame}{Performance Results}
+% ── Diapositive : Application Python de démo ─────────────────────
+\begin{frame}[fragile]{Application Python de Démonstration}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{\color{accent} Boucle CRUD continue~:}
+      \begin{tcolorbox}[codebox]
+\begin{minted}{python}
+while True:
+    # Opération aléatoire
+    op = random.choice(
+        ["insert", "update", "delete"]
+    )
+
+    if op == "insert":
+        doc_id, doc = do_insert(collection)
+    elif op == "update":
+        doc_id, fields = do_update(collection)
+    elif op == "delete":
+        doc_id = do_delete(collection)
+
+    # Vérifier dans Elasticsearch
+    time.sleep(0.5)
+    es_state = query_es(session, doc_id)
+
+    # Mesurer la latence
+    latency = (t_end - t_start) * 1000
+    print_comparison(op, doc_id, latency)
+\end{minted}
+      \end{tcolorbox}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{\color{accent} Sortie en direct~:}
+      \begin{tcolorbox}[card, colback=black, colframe=black, coltext=green!80!white, fontupper=\ttfamily\scriptsize]
+        ─────────────────────────────────\\
+        \hspace*{0.1cm}Opération : INSERT\\
+        \hspace*{0.1cm}Doc ID \hspace*{0.4cm}: 6a3bdb4c...\\
+        \hspace*{0.1cm}Latence \hspace*{0.3cm}: \textcolor{accent}{42.1 ms}\\
+        \\
+        \hspace*{0.1cm}MongoDB \hspace*{0.3cm}: \{name: "Alice"...\}\\
+        \hspace*{0.1cm}ES \hspace*{0.85cm}: \{name: "Alice"...\}\\
+        \hspace*{0.1cm}Statut \hspace*{0.45cm}: \textcolor{green!80!white}{✔ SYNCHRONISÉ}\\
+        ─────────────────────────────────\\
+        \hspace*{0.1cm}Opération : UPDATE\\
+        \hspace*{0.1cm}Latence \hspace*{0.3cm}: \textcolor{accent}{53.8 ms}\\
+        \hspace*{0.1cm}Statut \hspace*{0.45cm}: \textcolor{green!80!white}{✔ SYNCHRONISÉ}\\
+        ─────────────────────────────────\\
+        \hspace*{0.1cm}Opération : DELETE\\
+        \hspace*{0.1cm}Latence \hspace*{0.3cm}: \textcolor{accent}{39.4 ms}\\
+        \hspace*{0.1cm}Statut \hspace*{0.45cm}: \textcolor{green!80!white}{✔ SYNCHRONISÉ}\\
+        ─────────────────────────────────
+      \end{tcolorbox}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.15cm}
+  \imageplaceholder{demo-running.png}{0.5\textwidth}{1.2cm}{Application de démonstration Python en cours d'exécution}
+\end{frame}
+
+% ── Diapositive : Observabilité — Kafka UI & Kibana ──────────────
+\begin{frame}{Outils d'Observabilité}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[card, title={\faStream\ Kafka UI (Port 8080)}]
+        \scriptsize Naviguer dans les topics, inspecter les messages JSON en direct,
+        et suivre le décalage des groupes de consommateurs.
+      \end{tcolorbox}
+      \vspace{0.2cm}
+      \imageplaceholder{kafka-ui-messages.png}{\textwidth}{2.5cm}{Kafka UI~: messages CDC dans le topic \texttt{users}}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{tcolorbox}[card, title={\faSearch\ Kibana (Port 5601)}]
+        \scriptsize Exécuter des requêtes complexes et vérifier visuellement
+        les documents indexés et les schémas de données.
+      \end{tcolorbox}
+      \vspace{0.2cm}
+      \imageplaceholder{kibana-dashboard.png}{\textwidth}{2.5cm}{Kibana~: exploration des documents répliqués}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ══════════════════════════════════════════════════════════════════
+%  SECTION 6 : RÉSULTATS & CONCLUSION
+% ══════════════════════════════════════════════════════════════════
+\sectionslide{06}{Résultats \& Conclusion}{Pourquoi cette architecture est importante.}
+
+% ── Diapositive : Résultats de performance ───────────────────────
+\begin{frame}{Résultats de Performance}
   \begin{columns}
     \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, colframe=accent, boxrule=1pt, halign=center]
-        \Large \textbf{\textcolor{accent}{< 200ms}}\\ \scriptsize Average Latency
+      \begin{tcolorbox}[statcard, colframe=accent]
+        \Large \textbf{\textcolor{accent}{< 200\,ms}}\\ \scriptsize Latence Moyenne
       \end{tcolorbox}
     \end{column}
     \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, colframe=success, boxrule=1pt, halign=center]
-        \Large \textbf{\textcolor{success}{100\%}}\\ \scriptsize Delivery Guarantee
+      \begin{tcolorbox}[statcard, colframe=success]
+        \Large \textbf{\textcolor{success}{100\,\%}}\\ \scriptsize Garantie de Livraison
       \end{tcolorbox}
     \end{column}
     \begin{column}{0.31\textwidth}
-      \begin{tcolorbox}[card, colframe=accentsec, boxrule=1pt, halign=center]
-        \Large \textbf{\textcolor{accentsec}{0}}\\ \scriptsize Docs Lost on Restart
+      \begin{tcolorbox}[statcard, colframe=accentsec]
+        \Large \textbf{\textcolor{accentsec}{0}}\\ \scriptsize Docs Perdus au Redémarrage
       \end{tcolorbox}
     \end{column}
   \end{columns}
@@ -811,25 +1031,27 @@ while True:
   \vspace{0.4cm}
   \begin{columns}
     \begin{column}{0.45\textwidth}
+      \textbf{\color{accent} Distribution de la latence~:}
       \begin{tikzpicture}[scale=0.7]
         \begin{axis}[
             ybar,
-            bar width=15pt,
+            bar width=14pt,
             width=\textwidth,
             height=4.5cm,
             enlarge x limits=0.15,
-            ylabel={Percentage of Events (\%)},
+            ylabel={\% des événements},
             symbolic x coords={0-50, 50-100, 100-150, 150-200, 200+},
             xtick=data,
             nodes near coords,
             nodes near coords align={vertical},
             every node near coord/.append style={font=\tiny, color=textprim},
-            axis line style={draw=none},
-            tick style={draw=none},
-            yticklabels={,,},
+            axis line style={draw=textsec!30},
+            tick style={draw=textsec!30},
             x tick label style={font=\tiny, text=textsec},
             y tick label style={font=\tiny, text=textsec},
-            ylabel style={font=\scriptsize, text=textsec}
+            ylabel style={font=\scriptsize, text=textsec},
+            xlabel style={font=\scriptsize, text=textsec},
+            xlabel={Latence (ms)}
         ]
         \addplot[fill=accent, draw=none] coordinates {
           (0-50, 15) (50-100, 45) (100-150, 30) (150-200, 8) (200+, 2)
@@ -838,131 +1060,119 @@ while True:
       \end{tikzpicture}
     \end{column}
     \begin{column}{0.5\textwidth}
-      % PLACEHOLDER: replace with actual screenshot
-      \imageplaceholder{grafana-dashboard.png}{\textwidth}{3cm}
-      \vspace{-0.3cm}
-      \begin{center}\scriptsize\color{textsec} Grafana dashboard — consumer lag near zero\end{center}
+      \imageplaceholder{grafana-latency.png}{\textwidth}{3.5cm}{Graphique de latence en temps réel}
     \end{column}
   \end{columns}
 \end{frame}
 
-% ==================================================================
-% SLIDE 19: MONITORING STACK
-% ==================================================================
-\begin{frame}{Monitoring Stack}
-  \begin{columns}
+% ── Diapositive : Problèmes courants & solutions ────────────────
+\begin{frame}{Problèmes Courants \& Solutions}
+  \begin{columns}[T]
     \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[card, title=\faStream\ Kafka UI (Port 8080)]
-        \scriptsize Browse topics, inspect live JSON messages, and track consumer group lag natively.
+      \begin{tcolorbox}[card, colback=danger!8!surface, colframe=danger!40, boxrule=1pt, title={\faExclamationTriangle\ Replica Set Non Initialisé}]
+        \scriptsize\textbf{Symptôme~:} Debezium échoue avec \texttt{not a replica set member}\\[0.3em]
+        \textbf{Solution~:}\\
+        \texttt{make init-mongo}
       \end{tcolorbox}
-      \begin{tcolorbox}[card, title=\faChartArea\ Prometheus (Port 9090)]
-        \scriptsize Scrape JMX metrics directly from Kafka brokers and Debezium worker nodes.
+      \vspace{0.2cm}
+      \begin{tcolorbox}[card, colback=danger!8!surface, colframe=danger!40, boxrule=1pt, title={\faExclamationTriangle\ Kafka Connect Pas Prêt}]
+        \scriptsize\textbf{Symptôme~:} Timeout après 60 secondes\\[0.3em]
+        \textbf{Solution~:} Attendre $\sim$90s au premier démarrage, puis relancer~:\\
+        \texttt{make init-connectors}
       \end{tcolorbox}
     \end{column}
     \begin{column}{0.48\textwidth}
-      \begin{tcolorbox}[card, title=\faChartBar\ Grafana (Port 3000)]
-        \scriptsize Dashboards for throughput, network latency, partition health, and error rates.
+      \begin{tcolorbox}[card, colback=danger!8!surface, colframe=danger!40, boxrule=1pt, title={\faExclamationTriangle\ CLUSTER\_ID Kafka}]
+        \scriptsize\textbf{Symptôme~:} Kafka refuse de démarrer\\[0.3em]
+        \textbf{Solution~:} Remise à zéro complète~:\\
+        \texttt{make reset}
       \end{tcolorbox}
-      \begin{tcolorbox}[card, title=\faSearch\ Kibana (Port 5601)]
-        \scriptsize Run complex queries and visually verify indexed documents and data schemas.
+      \vspace{0.2cm}
+      \begin{tcolorbox}[card, colback=danger!8!surface, colframe=danger!40, boxrule=1pt, title={\faExclamationTriangle\ Index ES Manquant}]
+        \scriptsize\textbf{Symptôme~:} \texttt{index\_not\_found\_exception}\\[0.3em]
+        \textbf{Solution~:} Insérer un document pour déclencher le CDC~:\\
+        \texttt{make test}
       \end{tcolorbox}
     \end{column}
   \end{columns}
-
-  \vspace{0.4cm}
-  % PLACEHOLDER: replace with actual screenshot
-  \imageplaceholder{monitoring-overview.png}{0.65\textwidth}{2.5cm}
 \end{frame}
 
-% ==================================================================
-% SLIDE 20: SECTION DIVIDER 5
-% ==================================================================
-\begin{frame}[plain]
-  \begin{tikzpicture}[remember picture, overlay]
-    \fill[bgbody] (current page.south west) rectangle (current page.north east);
-    \fill[accent] (current page.south west) rectangle ([xshift=0.33\paperwidth]current page.north west);
-    
-    \begin{scope}[opacity=0.2]
-      \draw[white, thick] (-1,0) -- (4,5);
-      \draw[white, thick] (-1,2) -- (4,7);
-      \draw[white, thick] (-1,4) -- (4,9);
-    \end{scope}
-
-    \node[anchor=center, text=primary, font=\fontsize{60}{60}\bfseries] at ([xshift=0.165\paperwidth]current page.center) {05};
-    
-    \node[anchor=west, text=white] at ([xshift=0.38\paperwidth]current page.west) {
-      \begin{minipage}{0.55\textwidth}
-        {\Huge\bfseries Key Takeaways}\\[0.5em]
-        {\Large\color{accentsec} Why this architecture matters.}
-      \end{minipage}
-    };
-  \end{tikzpicture}
-\end{frame}
-
-% ==================================================================
-% SLIDE 21: KEY TAKEAWAYS
-% ==================================================================
-\begin{frame}{Key Takeaways}
-  \vspace{0.5cm}
+% ── Diapositive : Points clés ────────────────────────────────────
+\begin{frame}{Points Clés à Retenir}
+  \vspace{0.3cm}
   \begin{itemize}
-    \item[\textcolor{accent}{\textbf{1.}}] \textbf{Eliminates Batching:} Changes propagate in real time, not overnight.
-    \vspace{0.2cm}
-    \item[\textcolor{accent}{\textbf{2.}}] \textbf{Zero App Changes:} Debezium reads the oplog entirely invisibly.
-    \vspace{0.2cm}
-    \item[\textcolor{accent}{\textbf{3.}}] \textbf{Decoupled Arch:} Kafka isolates MongoDB performance from Elasticsearch indexing.
-    \vspace{0.2cm}
-    \item[\textcolor{accent}{\textbf{4.}}] \textbf{KRaft is the Future:} Zookeeper removal simplifies Ops significantly.
-    \vspace{0.2cm}
-    \item[\textcolor{accent}{\textbf{5.}}] \textbf{Highly Portable:} The entire clustered stack runs flawlessly in Docker.
+    \item[\textcolor{accent}{\textbf{1.}}] \textbf{Élimination du Batch~:} Les changements se propagent en temps réel, pas pendant la nuit.
+    \vspace{0.25cm}
+    \item[\textcolor{accent}{\textbf{2.}}] \textbf{Zéro Modification Applicative~:} Debezium lit l'oplog de manière totalement invisible.
+    \vspace{0.25cm}
+    \item[\textcolor{accent}{\textbf{3.}}] \textbf{Architecture Découplée~:} Kafka isole la performance de MongoDB de l'indexation Elasticsearch.
+    \vspace{0.25cm}
+    \item[\textcolor{accent}{\textbf{4.}}] \textbf{KRaft est l'Avenir~:} La suppression de Zookeeper simplifie considérablement les opérations.
+    \vspace{0.25cm}
+    \item[\textcolor{accent}{\textbf{5.}}] \textbf{Hautement Portable~:} L'ensemble du stack fonctionne parfaitement dans Docker.
+    \vspace{0.25cm}
+    \item[\textcolor{accent}{\textbf{6.}}] \textbf{Extensible~:} Ajouter une nouvelle collection nécessite seulement la mise à jour de 2 fichiers JSON.
   \end{itemize}
 
-  \vspace{0.8cm}
+  \vspace{0.5cm}
   \begin{center}
-    % PLACEHOLDER: replace with actual logos
-    \imageplaceholder{logo-mongo.png}{2cm}{1cm} \quad
-    \imageplaceholder{logo-debezium.png}{2cm}{1cm} \quad
-    \imageplaceholder{logo-kafka.png}{2cm}{1cm} \quad
-    \imageplaceholder{logo-elasticsearch.png}{2cm}{1cm}
+    \imageplaceholder{logo-mongo.png}{1.5cm}{1cm}{}~
+    \imageplaceholder{logo-debezium.png}{1.5cm}{1cm}{}~
+    \imageplaceholder{logo-kafka.png}{1.5cm}{1cm}{}~
+    \imageplaceholder{logo-elasticsearch.png}{1.5cm}{1cm}{}
   \end{center}
 \end{frame}
 
-% ==================================================================
-% SLIDE 22: THANK YOU / Q&A
-% ==================================================================
+% ══════════════════════════════════════════════════════════════════
+% DIAPOSITIVE FINALE : MERCI & QUESTIONS
+% ══════════════════════════════════════════════════════════════════
+{
+\setbeamertemplate{footline}{}
 \begin{frame}[plain]
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[primary] (current page.south west) rectangle (current page.north east);
+
+    % Grille de points subtile
+    \begin{scope}[opacity=0.06]
+      \foreach \x in {0,0.8,...,16} {
+        \foreach \y in {0,0.8,...,9} {
+          \fill[textsec] (\x,\y) circle (0.8pt);
+        }
+      }
+    \end{scope}
+  \end{tikzpicture}
+
   \begin{center}
-    \vspace{1cm}
-    {\Huge\bfseries\color{accent} Thank You!}\\[0.5em]
-    {\Large\color{textprim} Any Questions?}
-    \vspace{1cm}
+    \vspace{0.8cm}
+    {\Huge\bfseries\color{accent} Merci de votre attention~!}\\[0.5em]
+    {\Large\color{textprim} Des questions~?}
+    \vspace{0.8cm}
 
     \begin{columns}
       \begin{column}{0.31\textwidth}
         \begin{tcolorbox}[card, halign=center, size=small]
           \textcolor{textsec}{\faGithub\ GitHub}\\[0.2em]
-          \scriptsize \href{https://github.com/repo}{github.com/repo}
+          \scriptsize \href{https://github.com/repo}{github.com/[VOTRE-REPO]}
         \end{tcolorbox}
       \end{column}
       \begin{column}{0.31\textwidth}
         \begin{tcolorbox}[card, halign=center, size=small]
           \textcolor{textsec}{\faLinkedin\ LinkedIn}\\[0.2em]
-          \scriptsize \href{https://linkedin.com/in/user}{linkedin.com/in/user}
+          \scriptsize \href{https://linkedin.com/in/user}{linkedin.com/in/[PROFIL]}
         \end{tcolorbox}
       \end{column}
       \begin{column}{0.31\textwidth}
         \begin{tcolorbox}[card, halign=center, size=small]
           \textcolor{textsec}{\faEnvelope\ Email}\\[0.2em]
-          \scriptsize \href{mailto:email@example.com}{email@example.com}
+          \scriptsize \href{mailto:email@example.com}{[VOTRE-EMAIL]}
         \end{tcolorbox}
       \end{column}
     \end{columns}
 
-    \vspace{0.8cm}
-    % PLACEHOLDER: replace with actual screenshot
-    \imageplaceholder{qr-code.png}{2cm}{2cm}
-    \vspace{-0.3cm}
-    \begin{center}\scriptsize\color{textsec} Scan for the full source code\end{center}
+    \vspace{0.6cm}
+    \imageplaceholder{qr-code.png}{2cm}{2cm}{Scanner pour accéder au code source complet}
   \end{center}
 \end{frame}
+}
 
 \end{document}
